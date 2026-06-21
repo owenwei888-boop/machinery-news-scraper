@@ -1,26 +1,43 @@
-# MVP: 5 sources. Scale to 30+ in Phase 3.
+# MVP: 8 verified-working sources (probed 2026-06-21).
+# All URLs tested against the patched _fetch_bytes with User-Agent header.
+# Scale to 30+ in Phase 3.
 sources:
-  - id: packaging-europe
-    name: Packaging Europe
-    url: https://www.packagingeurope.com/feed/
-    source_type: rss
-
   - id: packaging-digest
     name: Packaging Digest
-    url: https://www.packagingdigest.com/rss.xml
+    url: https://feeds.feedburner.com/PackagingDigest
     source_type: rss
 
-  - id: packaging-world
-    name: Packaging World
-    url: https://www.packagingworld.com/rss.xml
+  - id: packaging-strategies
+    name: Packaging Strategies
+    url: https://feeds.feedburner.com/PackagingStrategies
     source_type: rss
 
-  - id: plastics-news
-    name: Plastics News
-    url: https://www.plasticsnews.com/arc/outboundfeeds/rss/
+  - id: flexible-packaging
+    name: Flexible Packaging
+    url: https://feeds.feedburner.com/FlexiblePackaging
     source_type: rss
 
   - id: food-engineering
     name: Food Engineering
-    url: https://www.foodengineeringmag.com/rss.xml
+    url: https://feeds.feedburner.com/FoodEngineering
+    source_type: rss
+
+  - id: industrial-machinery-news
+    name: Industrial Machinery News
+    url: https://industrialmachinerynews.com/feed/
+    source_type: rss
+
+  - id: plastics-today
+    name: Plastics Today
+    url: https://www.plasticstoday.com/rss.xml
+    source_type: rss
+
+  - id: modern-materials-handling
+    name: Modern Materials Handling
+    url: https://www.mmh.com/feed/
+    source_type: rss
+
+  - id: robot-report
+    name: The Robot Report
+    url: https://www.therobotreport.com/feed/
     source_type: rss

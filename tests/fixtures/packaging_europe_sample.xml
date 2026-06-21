@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Packaging Europe</title>
+    <link>https://www.packagingeurope.com</link>
+    <description>European packaging industry news</description>
+    <item>
+      <title>Bosch unveils servo-driven VFFS machine at Interpack</title>
+      <link>https://www.packagingeurope.com/news/bosch-vffs-interpack</link>
+      <description>&lt;p&gt;Bosch Packaging Technology has launched a new servo-driven vertical form-fill-seal machine.&lt;/p&gt;</description>
+      <author>jane.doe@packagingeurope.com (Jane Doe)</author>
+      <pubDate>Mon, 20 Jun 2026 09:00:00 +0000</pubDate>
+      <guid>https://www.packagingeurope.com/news/bosch-vffs-interpack</guid>
+    </item>
+    <item>
+      <title>Krones reports record orders for FY2026</title>
+      <link>https://www.packagingeurope.com/news/krones-record-orders</link>
+      <description>&lt;p&gt;German bottling-line manufacturer Krones saw 12% order growth.&lt;/p&gt;</description>
+      <pubDate>Sun, 19 Jun 2026 14:00:00 +0000</pubDate>
+      <guid>https://www.packagingeurope.com/news/krones-record-orders</guid>
+    </item>
+  </channel>
+</rss>

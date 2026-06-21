@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Beispiel Feed</title>
+    <link>https://example.de</link>
+    <item>
+      <title>Neue Verpackungsmaschine vorgestellt</title>
+      <link>https://example.de/news/1</link>
+      <description>Die neue Maschine ist schneller und effizienter als bisherige Modelle.</description>
+      <pubDate>Mon, 20 Jun 2026 09:00:00 +0000</pubDate>
+      <guid>https://example.de/news/1</guid>
+    </item>
+  </channel>
+</rss>

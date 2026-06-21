@@ -1,0 +1,26 @@
+# MVP: 5 sources. Scale to 30+ in Phase 3.
+sources:
+  - id: packaging-europe
+    name: Packaging Europe
+    url: https://www.packagingeurope.com/feed/
+    source_type: rss
+
+  - id: packaging-digest
+    name: Packaging Digest
+    url: https://www.packagingdigest.com/rss.xml
+    source_type: rss
+
+  - id: packaging-world
+    name: Packaging World
+    url: https://www.packagingworld.com/rss.xml
+    source_type: rss
+
+  - id: plastics-news
+    name: Plastics News
+    url: https://www.plasticsnews.com/arc/outboundfeeds/rss/
+    source_type: rss
+
+  - id: food-engineering
+    name: Food Engineering
+    url: https://www.foodengineeringmag.com/rss.xml
+    source_type: rss

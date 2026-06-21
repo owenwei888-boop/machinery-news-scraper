@@ -12,14 +12,24 @@ from ..models import Item, Source
 
 _AUTHOR_EMAIL_RE = re.compile(r"^.*?\(([^)]+)\)\s*$")
 
+_USER_AGENT = (
+    "Mozilla/5.0 (compatible; MachineryNewsScraper/0.1; "
+    "+https://the-packing-machine.com/about)"
+)
+
 
 class RSSParseError(Exception):
     """Raised when RSS feed cannot be parsed."""
 
 
 def _fetch_bytes(url: str) -> bytes:
-    """HTTP fetch — isolated so tests can monkeypatch."""
-    with httpx.Client(timeout=30, follow_redirects=True) as client:
+    """HTTP fetch — isolated so tests can monkeypatch.
+    Sends a descriptive User-Agent so industry-news sites don't 403 us as a bot."""
+    with httpx.Client(
+        timeout=30,
+        follow_redirects=True,
+        headers={"User-Agent": _USER_AGENT},
+    ) as client:
         resp = client.get(url)
         resp.raise_for_status()
         return resp.content

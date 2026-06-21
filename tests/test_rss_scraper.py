@@ -69,3 +69,25 @@ def test_scrape_rss_skips_items_without_link(monkeypatch):
     items = scrape_rss(_make_source())
     assert len(items) == 1
     assert items[0].title == "Has link"
+
+
+def test_fetch_bytes_sends_user_agent_header():
+    """The real _fetch_bytes (not monkeypatched) must send a User-Agent header
+    so machinery-news sites don't 403 us as a bot."""
+    import respx
+    import httpx
+    from machinery_news_scraper.scrapers.rss_scraper import _fetch_bytes
+
+    captured = {}
+    def _capture(request):
+        captured["headers"] = dict(request.headers)
+        return httpx.Response(200, content=b"<rss/>")
+
+    with respx.mock(base_url="https://feed.example.com") as r:
+        r.get("/feed.xml").mock(side_effect=_capture)
+        _fetch_bytes("https://feed.example.com/feed.xml")
+
+    ua = captured["headers"].get("user-agent", "")
+    assert ua, "User-Agent header is missing"
+    assert "python" not in ua.lower() or "mozilla" in ua.lower(), \
+        f"User-Agent looks like a default Python client (got: {ua!r}) — will get 403'd"

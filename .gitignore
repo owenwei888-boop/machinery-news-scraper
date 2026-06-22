@@ -11,3 +11,13 @@ dist/
 .coverage
 htmlcov/
 queue.db
+logs/
+*.log
+machinery-dedup.zip
+machinery-news-scraper.zip
+wp-rss-curator.zip
+rss-curator-diag.zip
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

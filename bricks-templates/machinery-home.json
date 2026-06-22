@@ -1,0 +1,307 @@
+{
+  "version": "Bricks",
+  "elements": [
+    {
+      "id": "main-section",
+      "name": "section",
+      "settings": {
+        "_width": "full_width",
+        "_padding": {
+          "top": "40px",
+          "right": "20px",
+          "bottom": "40px",
+          "left": "20px"
+        },
+        "_background": {
+          "color": "#ffffff"
+        }
+      },
+      "children": [
+        {
+          "id": "main-container",
+          "name": "container",
+          "settings": {
+            "_width": "1140px",
+            "_widthMax": "1140px",
+            "_margin": {
+              "top": "0",
+              "bottom": "0"
+            }
+          },
+          "children": [
+            {
+              "id": "site-title",
+              "name": "heading",
+              "settings": {
+                "text": "Machinery News Digest",
+                "tag": "h1",
+                "_typography": {
+                  "font-family": "Inter, system-ui, sans-serif",
+                  "font-size": "36px",
+                  "font-weight": "700",
+                  "color": "#0a0e1a",
+                  "text-align": "center"
+                },
+                "_margin": {
+                  "bottom": "8px"
+                }
+              }
+            },
+            {
+              "id": "site-tagline",
+              "name": "text",
+              "settings": {
+                "text": "Industry intelligence for packaging machinery buyers — curated daily from packaging, materials, robotics, and trade publications.",
+                "tag": "p",
+                "_typography": {
+                  "font-size": "15px",
+                  "color": "#5b6478",
+                  "text-align": "center"
+                },
+                "_margin": {
+                  "bottom": "32px"
+                }
+              }
+            },
+            {
+              "id": "category-nav",
+              "name": "container",
+              "settings": {
+                "_direction": "row",
+                "_justify": "center",
+                "_gap": "8px",
+                "_flexWrap": "wrap",
+                "_padding": {
+                  "top": "12px",
+                  "bottom": "12px"
+                },
+                "_border": {
+                  "top": {
+                    "width": "1px",
+                    "color": "#e5e7eb"
+                  },
+                  "bottom": {
+                    "width": "1px",
+                    "color": "#e5e7eb"
+                  }
+                },
+                "_margin": {
+                  "bottom": "32px"
+                }
+              },
+              "children": [
+                {
+                  "id": "nav-all",
+                  "name": "link",
+                  "settings": {
+                    "text": "All",
+                    "link": "/",
+                    "_typography": {
+                      "font-size": "14px",
+                      "font-weight": "600",
+                      "color": "#0a0e1a"
+                    },
+                    "_padding": {
+                      "top": "6px",
+                      "right": "14px",
+                      "bottom": "6px",
+                      "left": "14px"
+                    },
+                    "_background": {
+                      "color": "#f3f4f6"
+                    },
+                    "_border": {
+                      "radius": "20px"
+                    }
+                  }
+                },
+                {
+                  "id": "nav-machines",
+                  "name": "link",
+                  "settings": {
+                    "text": "Machines",
+                    "link": "/category/machines/",
+                    "_typography": {
+                      "font-size": "14px",
+                      "font-weight": "600",
+                      "color": "#0a0e1a"
+                    },
+                    "_padding": {
+                      "top": "6px",
+                      "right": "14px",
+                      "bottom": "6px",
+                      "left": "14px"
+                    }
+                  }
+                },
+                {
+                  "id": "nav-components",
+                  "name": "link",
+                  "settings": {
+                    "text": "Components",
+                    "link": "/category/components/",
+                    "_typography": {
+                      "font-size": "14px",
+                      "font-weight": "600"
+                    },
+                    "_padding": {
+                      "top": "6px",
+                      "right": "14px",
+                      "bottom": "6px",
+                      "left": "14px"
+                    }
+                  }
+                },
+                {
+                  "id": "nav-materials",
+                  "name": "link",
+                  "settings": {
+                    "text": "Materials",
+                    "link": "/category/materials/",
+                    "_typography": {
+                      "font-size": "14px",
+                      "font-weight": "600"
+                    },
+                    "_padding": {
+                      "top": "6px",
+                      "right": "14px",
+                      "bottom": "6px",
+                      "left": "14px"
+                    }
+                  }
+                },
+                {
+                  "id": "nav-robotics",
+                  "name": "link",
+                  "settings": {
+                    "text": "Robotics",
+                    "link": "/category/robotics/",
+                    "_typography": {
+                      "font-size": "14px",
+                      "font-weight": "600"
+                    },
+                    "_padding": {
+                      "top": "6px",
+                      "right": "14px",
+                      "bottom": "6px",
+                      "left": "14px"
+                    }
+                  }
+                },
+                {
+                  "id": "nav-industry",
+                  "name": "link",
+                  "settings": {
+                    "text": "Industry",
+                    "link": "/category/industry/",
+                    "_typography": {
+                      "font-size": "14px",
+                      "font-weight": "600"
+                    },
+                    "_padding": {
+                      "top": "6px",
+                      "right": "14px",
+                      "bottom": "6px",
+                      "left": "14px"
+                    }
+                  }
+                },
+                {
+                  "id": "nav-trade-shows",
+                  "name": "link",
+                  "settings": {
+                    "text": "Trade Shows",
+                    "link": "/category/trade-shows/",
+                    "_typography": {
+                      "font-size": "14px",
+                      "font-weight": "600"
+                    },
+                    "_padding": {
+                      "top": "6px",
+                      "right": "14px",
+                      "bottom": "6px",
+                      "left": "14px"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "featured-section-title",
+              "name": "heading",
+              "settings": {
+                "text": "Top Stories",
+                "tag": "h2",
+                "_typography": {
+                  "font-size": "24px",
+                  "font-weight": "700",
+                  "color": "#0a0e1a"
+                },
+                "_margin": {
+                  "bottom": "16px"
+                }
+              }
+            },
+            {
+              "id": "featured-posts",
+              "name": "posts",
+              "settings": {
+                "query": {
+                  "post_type": "post",
+                  "posts_per_page": "5",
+                  "orderby": "date",
+                  "order": "DESC",
+                  "meta_query": [
+                    {
+                      "key": "_machinery_ai_importance",
+                      "value": "4",
+                      "compare": ">="
+                    }
+                  ]
+                },
+                "_layout": "grid",
+                "_columns": "3",
+                "_gap": "20px",
+                "_margin": {
+                  "bottom": "48px"
+                }
+              }
+            },
+            {
+              "id": "latest-section-title",
+              "name": "heading",
+              "settings": {
+                "text": "Latest",
+                "tag": "h2",
+                "_typography": {
+                  "font-size": "24px",
+                  "font-weight": "700",
+                  "color": "#0a0e1a"
+                },
+                "_margin": {
+                  "bottom": "16px"
+                }
+              }
+            },
+            {
+              "id": "latest-posts",
+              "name": "posts",
+              "settings": {
+                "query": {
+                  "post_type": "post",
+                  "posts_per_page": "12",
+                  "orderby": "date",
+                  "order": "DESC"
+                },
+                "_layout": "grid",
+                "_columns": "3",
+                "_gap": "20px",
+                "_pagination": true
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

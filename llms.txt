@@ -1,0 +1,45 @@
+# Machinery News Digest
+
+> B2B packaging-machinery industry news aggregator. Curated daily from packaging, materials, robotics, and trade publications worldwide. Each article is AI-summarized (100-200 words), categorized into one of six verticals, and assigned a 1-5 importance score. Audience: procurement managers and operations engineers at FMCG / pharma / industrial companies.
+
+Machinery News Digest auto-aggregates ~20 English-language RSS feeds covering packaging machinery, packaging components, materials/films, industrial robotics, and industry trade shows. Each item is processed by an LLM (Google Gemini) which generates a buyer-focused summary, classifies it into one of six categories, scores importance (1-5), extracts 3-5 tags, and writes a one-sentence buyer angle. High-importance posts (importance >= 3) auto-publish; the rest stay as draft for editorial review.
+
+## Public data interfaces (for agents)
+
+- [Top Stories RSS](https://the-packing-machine.com/feed/selected.xml): Top 50 importance>=4 stories (RSS 2.0)
+- [All Items RSS](https://the-packing-machine.com/feed/all.xml): Last 100 published items (RSS 2.0)
+- [This Week RSS](https://the-packing-machine.com/feed/weekly.xml): Top 20 importance>=3 stories from the past 7 days (RSS 2.0)
+- [Items API](https://the-packing-machine.com/wp-json/machinery/v1/items): JSON, supports `category`, `importance_min`, `since`, `q`, `limit`, `offset` filters
+- [Stats API](https://the-packing-machine.com/wp-json/machinery/v1/stats): Live coverage stats — post counts, per-category distribution, importance histogram, feed URLs
+
+## Categories
+
+| Slug        | Covers                                                                |
+| ----------- | --------------------------------------------------------------------- |
+| machines    | VFFS, HFFS, form-fill-seal, labeling, pouch equipment                 |
+| components  | Sensors, servo motors, PLCs, valves, sealing bars (the parts)         |
+| materials   | Films, laminates, sustainable polymers, recyclability regs            |
+| robotics    | Pick-place, palletizing, collaborative robots in packaging lines      |
+| industry    | M&A, regulation, trade news, market analysis                          |
+| trade-shows | Interpack, Pack Expo, Hannover Messe, Chinaplas announcements         |
+
+## Agent Skill
+
+- [Skill README](https://the-packing-machine.com/machinery-skill/SKILL.md): Drop-in Claude / Cline / Cursor skill for querying the digest
+
+## Main pages
+
+- [Homepage](https://the-packing-machine.com/): Top stories + latest
+- [Machines](https://the-packing-machine.com/category/machines/): Vertical archive
+- [Components](https://the-packing-machine.com/category/components/): Vertical archive
+- [Materials](https://the-packing-machine.com/category/materials/): Vertical archive
+- [Robotics](https://the-packing-machine.com/category/robotics/): Vertical archive
+- [Industry](https://the-packing-machine.com/category/industry/): Vertical archive
+- [Trade Shows](https://the-packing-machine.com/category/trade-shows/): Vertical archive
+
+## Usage notes
+
+- All summaries and buyer-angle commentary are LLM-generated and editorially curated — cite the original source URL (in the `source_url` field) when quoting.
+- Content is updated multiple times daily; new items flow into all three RSS feeds and the API automatically.
+- Free-text search via `?q=` searches against WP's full-text post index (title + content).
+- The API supports `limit` up to 100 and `offset` for pagination.

@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 from .config import load_sources
 from .logging_setup import setup as setup_logging
 from .pipeline import run_pipeline
-from .pusher.retry import push_with_retry
 from .pusher.wp_client import WPClient
 from .scrapers.rss_scraper import scrape_rss
 
@@ -35,12 +34,26 @@ def _build_parser() -> argparse.ArgumentParser:
                      help="Base delay in seconds for exponential backoff")
     run.add_argument("--log-level", default="INFO",
                      choices=["DEBUG", "INFO", "WARNING", "ERROR"])
+    # AI options — all optional. If --ai-provider is set, AI enrichment runs.
+    run.add_argument("--ai-provider", default=None,
+                     choices=["gemini"],
+                     help="AI provider for summary/category/importance. Reads API key from env.")
+    run.add_argument("--ai-model", default="gemini-2.5-flash-lite",
+                     help="AI model (default: gemini-2.5-flash-lite — higher free-tier quota than 2.5-flash)")
+    run.add_argument("--auto-publish-threshold", type=int, default=0,
+                     help="Auto-publish items with ai_importance >= this (0=never, default). "
+                          "Recommended: 3 (frontpage-worthy) or 4 (only major).")
+    run.add_argument("--ai-rpm", type=int, default=15,
+                     help="Max AI API calls per minute (rate limit, default 15 for Gemini free tier)")
+    run.add_argument("--map-categories", action="store_true", default=False,
+                     help="Auto-query WP categories and map AI category slugs to WP IDs "
+                          "(machines, components, materials, robotics, industry, trade-shows)")
+    run.add_argument("--no-predup-check", action="store_true", default=False,
+                     help="Skip the pre-dedup WP URL fetch. Saves a few seconds but wastes Gemini quota.")
     return p
 
 
 def main(argv: list[str] | None = None) -> int:
-    # argparse calls sys.exit(2) on errors (unknown subcommand, missing required arg, -h).
-    # Translate SystemExit.code into a return value so callers (tests, __main__) get an int.
     try:
         args = _build_parser().parse_args(argv)
     except SystemExit as e:
@@ -48,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "run":
         return _cmd_run(args)
-    return 2  # unreachable due to required=True
+    return 2
 
 
 def _cmd_run(args) -> int:
@@ -73,8 +86,58 @@ def _cmd_run(args) -> int:
             print(f"ERROR: source '{args.source}' not found in {args.feeds_yaml}", file=sys.stderr)
             return 1
 
-    client = WPClient(base_url=wp_url, username=wp_user, app_password=wp_pass)
+    # Build AI processor if configured
+    ai_processor = None
+    if args.ai_provider == "gemini":
+        gemini_key = os.environ.get("GEMINI_API_KEY")
+        if not gemini_key:
+            print("ERROR: --ai-provider=gemini but GEMINI_API_KEY not set in env", file=sys.stderr)
+            return 1
+        from .ai_processor import AIProcessor  # lazy import — google-genai is optional
+        ai_processor = AIProcessor(
+            api_key=gemini_key,
+            model=args.ai_model,
+            rpm_limit=args.ai_rpm,
+        )
+        print(f"AI: enabled ({args.ai_model}, auto-publish >= {args.auto_publish_threshold})")
+    else:
+        print("AI: disabled (use --ai-provider gemini to enable)")
+
+    # Build WP category map (slug → ID) so AI categories can be assigned.
+    # Either auto-query or use empty dict (no category assignment).
+    category_map: dict = {}
+    if args.map_categories:
+        import httpx as _httpx
+        try:
+            r = _httpx.get(
+                f"{wp_url.rstrip('/')}/wp-json/wp/v2/categories?per_page=100",
+                auth=(wp_user, wp_pass),
+                timeout=30,
+            )
+            r.raise_for_status()
+            for c in r.json():
+                category_map[c["slug"]] = c["id"]
+            print(f"WP categories: {category_map}")
+        except Exception as e:
+            print(f"WARN: failed to fetch WP categories: {e}", file=sys.stderr)
+
+    client = WPClient(
+        base_url=wp_url,
+        username=wp_user,
+        app_password=wp_pass,
+        auto_publish_threshold=args.auto_publish_threshold,
+        category_map=category_map,
+    )
     push_fn = lambda item: client.push(item)  # noqa: E731
+
+    # Pre-fetch existing source URLs so we can skip AI + push on duplicates.
+    # This saves Gemini API quota (the main cost of the pipeline).
+    existing_urls: set[str] | None = None
+    if not args.no_predup_check:
+        try:
+            existing_urls = client.fetch_existing_source_urls()
+        except Exception as e:
+            print(f"WARN: pre-dedup check failed ({e}); continuing without", file=sys.stderr)
 
     stats = run_pipeline(
         sources=sources,
@@ -83,6 +146,8 @@ def _cmd_run(args) -> int:
         queue_path=args.queue_db,
         max_attempts=args.max_attempts,
         base_delay=args.base_delay,
+        ai_processor=ai_processor,
+        existing_urls=existing_urls,
     )
     print(f"pipeline done: {stats}")
     return 0

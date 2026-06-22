@@ -1,16 +1,20 @@
 # src/machinery_news_scraper/pipeline.py
-"""Orchestrates: replay queue → scrape sources → filter EN → push with retry → queue failures."""
+"""Orchestrates: replay queue → scrape sources → filter EN → AI enrich → push with retry → queue failures."""
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import logging
-from typing import Callable
+from typing import Callable, Optional, TYPE_CHECKING
 
 from .models import Item, Source
 from .filters.language import filter_english
 from .pusher.wp_client import PushResult, PushStatus
 from .pusher.retry import push_with_retry
 from .pusher.queue import FailedQueue
+from .ai_processor import process_items
+
+if TYPE_CHECKING:
+    from .ai_processor import AIProcessor
 
 log = logging.getLogger(__name__)
 
@@ -25,13 +29,16 @@ class PipelineStats:
     failed: int = 0
     queued: int = 0
     replayed_from_queue: int = 0
+    ai_processed: int = 0
+    ai_failed: int = 0
 
     def __repr__(self) -> str:
         return (
             f"PipelineStats(scraped={self.scraped}, en={self.kept_english}, "
             f"dropped_non_en={self.dropped_non_english}, pushed={self.pushed}, "
             f"dups={self.duplicated}, failed={self.failed}, "
-            f"queued={self.queued}, replayed={self.replayed_from_queue})"
+            f"queued={self.queued}, replayed={self.replayed_from_queue}, "
+            f"ai_ok={self.ai_processed}, ai_fail={self.ai_failed})"
         )
 
 
@@ -43,6 +50,8 @@ def run_pipeline(
     max_attempts: int = 3,
     base_delay: float = 1.0,
     queue_replay_limit: int = 100,
+    ai_processor: "Optional[AIProcessor]" = None,
+    existing_urls: Optional[set[str]] = None,
 ) -> PipelineStats:
     stats = PipelineStats()
     queue = FailedQueue(queue_path)
@@ -71,6 +80,23 @@ def run_pipeline(
     english_items = filter_english(all_items)
     stats.kept_english = len(english_items)
     stats.dropped_non_english = stats.scraped - stats.kept_english
+
+    # 3.5. Pre-dedup: drop items already on WP (saves AI calls + push attempts)
+    if existing_urls is not None:
+        before = len(english_items)
+        english_items = [i for i in english_items if i.url not in existing_urls]
+        skipped = before - len(english_items)
+        stats.duplicated += skipped
+        if skipped:
+            log.info("pre-dedup skipped %d already-on-WP items (saved %d AI calls)",
+                     skipped, skipped if ai_processor else 0)
+
+    # 3.6. AI enrichment (optional, only on items not already on WP)
+    if ai_processor is not None and english_items:
+        log.info("AI-enriching %d items...", len(english_items))
+        english_items = process_items(english_items, ai_processor)
+        stats.ai_processed = sum(1 for i in english_items if i.ai_summary is not None)
+        stats.ai_failed = len(english_items) - stats.ai_processed
 
     # 4. Push each
     for item in english_items:

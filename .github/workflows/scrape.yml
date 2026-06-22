@@ -1,0 +1,85 @@
+# Machinery News Scraper — runs every 6 hours via GitHub Actions cron.
+#
+# Why GitHub Actions instead of a VPS:
+#   - Free for public AND private repos (2000 minutes/month free tier)
+#   - No server to manage, no SSH, no firewalls
+#   - Integrated with the code repo
+#   - Cron triggers built-in
+#   - Run history + logs viewable in GitHub UI
+#
+# Setup (one-time):
+#   1. Push this repo to GitHub (private recommended — code + secrets in Actions)
+#   2. Add these repository Secrets (Settings → Secrets and variables → Actions):
+#        WP_URL             e.g. https://the-packing-machine.com
+#        WP_USER            e.g. owenwei888@gmail.com
+#        WP_APP_PASSWORD    e.g. AI8J NyFy kdWT fBFY uy1F 3hZD
+#        GEMINI_API_KEY     e.g. AQ.Ab8RN6IMAmrbeVphp8V_Lz0D7ai8VhBLG9N_JCkq-Zy04iZmsA
+#   3. Workflow runs automatically on schedule, or manually via "Run workflow" button.
+#
+# Free tier math:
+#   - Each run: ~3-5 minutes (scraper + AI processing)
+#   - 4 runs/day × 5 min × 30 days = 600 min/month
+#   - Free quota: 2000 min/month → ~3x headroom
+
+name: Scrape
+
+on:
+  schedule:
+    # Every 6 hours at 05,11,17,23 UTC (avoid :00 to spread load)
+    - cron: '5 5,11,17,23 * * *'
+  workflow_dispatch:  # Manual trigger from Actions UI
+
+permissions:
+  contents: read
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Write .env from Secrets
+        run: |
+          # GitHub Actions doesn't expose secrets as files; we build .env at runtime.
+          cat > .env <<EOF
+          WP_URL=${{ secrets.WP_URL }}
+          WP_USER=${{ secrets.WP_USER }}
+          WP_APP_PASSWORD=${{ secrets.WP_APP_PASSWORD }}
+          LOG_LEVEL=INFO
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+          EOF
+
+      - name: Run scraper
+        # PYTHONPATH=src avoids needing the editable install for module imports
+        # (same workaround as Windows — keeps the codebase identical across platforms)
+        env:
+          PYTHONPATH: src
+        run: |
+          python -m machinery_news_scraper run \
+            --source all \
+            --ai-provider gemini \
+            --ai-model gemini-2.5-flash-lite \
+            --auto-publish-threshold 3 \
+            --ai-rpm 10 \
+            --map-categories
+
+      - name: Show summary
+        if: always()
+        run: |
+          echo "=== Run complete ==="
+          echo "See steps above for PipelineStats output."
+          echo "Site stats: https://the-packing-machine.com/wp-json/machinery/v1/stats"

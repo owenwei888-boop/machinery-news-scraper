@@ -15,11 +15,6 @@
 #        WP_APP_PASSWORD    e.g. AI8J NyFy kdWT fBFY uy1F 3hZD
 #        GEMINI_API_KEY     e.g. AQ.Ab8RN6IMAmrbeVphp8V_Lz0D7ai8VhBLG9N_JCkq-Zy04iZmsA
 #   3. Workflow runs automatically on schedule, or manually via "Run workflow" button.
-#
-# Free tier math:
-#   - Each run: ~3-5 minutes (scraper + AI processing)
-#   - 4 runs/day × 5 min × 30 days = 600 min/month
-#   - Free quota: 2000 min/month → ~3x headroom
 
 name: Scrape
 
@@ -39,10 +34,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -53,19 +48,21 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Write .env from Secrets
+        # Use printf with explicit newlines (not heredoc) to avoid YAML
+        # indentation leaking into the .env file as leading whitespace.
+        # Python-dotenv would otherwise see keys like "    WP_URL" instead of "WP_URL".
         run: |
-          # GitHub Actions doesn't expose secrets as files; we build .env at runtime.
-          cat > .env <<EOF
-          WP_URL=${{ secrets.WP_URL }}
-          WP_USER=${{ secrets.WP_USER }}
-          WP_APP_PASSWORD=${{ secrets.WP_APP_PASSWORD }}
-          LOG_LEVEL=INFO
-          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-          EOF
+          {
+            printf 'WP_URL=%s\n' '${{ secrets.WP_URL }}'
+            printf 'WP_USER=%s\n' '${{ secrets.WP_USER }}'
+            printf 'WP_APP_PASSWORD=%s\n' '${{ secrets.WP_APP_PASSWORD }}'
+            printf 'LOG_LEVEL=INFO\n'
+            printf 'GEMINI_API_KEY=%s\n' '${{ secrets.GEMINI_API_KEY }}'
+          } > .env
+          echo "=== .env keys (values masked) ==="
+          sed 's/=.*/=<set>/' .env
 
       - name: Run scraper
-        # PYTHONPATH=src avoids needing the editable install for module imports
-        # (same workaround as Windows — keeps the codebase identical across platforms)
         env:
           PYTHONPATH: src
         run: |

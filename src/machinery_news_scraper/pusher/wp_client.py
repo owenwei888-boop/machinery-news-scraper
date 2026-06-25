@@ -168,19 +168,25 @@ class WPClient:
         on items already imported (saves Gemini quota).
 
         Queries all posts with status publish/draft/pending. Paginates 100/page.
+        Uses a longer timeout (120s) than push() because some hosting is slow
+        from international IPs (e.g. GitHub Actions hitting a CN-hosted site).
         """
         urls: set[str] = set()
         page = 1
+        fetch_timeout = max(120.0, self._timeout * 4)  # generous for slow links
         while True:
             try:
-                with httpx.Client(timeout=self._timeout) as client:
+                with httpx.Client(timeout=fetch_timeout) as client:
                     resp = client.get(
                         f"{self._base}/wp-json/wp/v2/posts",
                         params={
                             "per_page": 100,
                             "page": page,
                             "status": "publish,draft,pending",
-                            "context": "edit",
+                            # Only request the fields we need (drops payload from
+                            # ~5KB/post to ~200 bytes/post — critical for slow
+                            # links like GitHub Actions <-> CN-hosted sites).
+                            "_fields": "id,meta._machinery_source_url",
                         },
                         auth=self._auth,
                     )

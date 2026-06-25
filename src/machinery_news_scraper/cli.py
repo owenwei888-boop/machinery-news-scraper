@@ -112,7 +112,7 @@ def _cmd_run(args) -> int:
             r = _httpx.get(
                 f"{wp_url.rstrip('/')}/wp-json/wp/v2/categories?per_page=100",
                 auth=(wp_user, wp_pass),
-                timeout=30,
+                timeout=120.0,
             )
             r.raise_for_status()
             for c in r.json():

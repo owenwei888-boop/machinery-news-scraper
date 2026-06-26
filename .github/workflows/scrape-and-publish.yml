@@ -1,0 +1,103 @@
+# Machinery News Scraper → Cloudflare Pages (Git publisher, two-repo variant).
+#
+# Architecture:
+#   - This repo (machinery-news-scraper) holds the scraper code.
+#   - A SEPARATE repo (machinery-cf-site) holds the Astro site, deployed to CF.
+#   - The scraper clones cf-site into the workspace, writes Markdown files
+#     into src/content/news/, then commits + pushes back to cf-site.
+#   - Cloudflare Pages watches machinery-cf-site → rebuilds automatically.
+#
+# Secret required:
+#   SITE_REPO_PAT  — fine-grained PAT with "Contents: Read and Write" on
+#                    owenwei888-boop/machinery-cf-site. Create at:
+#                    https://github.com/settings/personal-access-tokens/new
+#
+# Old WP-pushing workflow (scrape.yml) was deleted when this landed.
+
+name: Scrape & Publish
+
+on:
+  schedule:
+    # Every 6h at 07/13/19/01 UTC (off the :00 mark to spread load)
+    - cron: '7 1,7,13,19 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read   # scraper repo itself — we don't push back here
+
+concurrency:
+  group: scrape-publish
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # The cf-site repo we clone + push Markdown back to
+      SITE_REPO: https://github.com/owenwei888-boop/machinery-cf-site.git
+      SITE_DIR: ./machinery-cf-site
+
+    steps:
+      - name: Checkout scraper
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install scraper dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Clone cf-site repo
+        # PAT injected into URL so subsequent `git push` from inside the
+        # clone doesn't need interactive creds. Token never logged.
+        env:
+          PAT: ${{ secrets.SITE_REPO_PAT }}
+        run: |
+          if [ -z "$PAT" ]; then
+            echo "ERROR: SITE_REPO_PAT secret not set" >&2
+            exit 1
+          fi
+          # Inject PAT between scheme and host: https://x-access-token:TOKEN@github.com/...
+          AUTH_URL="https://x-access-token:${PAT}@github.com/owenwei888-boop/machinery-cf-site.git"
+          git clone --depth 1 "$AUTH_URL" "$SITE_DIR"
+          cd "$SITE_DIR"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "Cloned cf-site @ $(git rev-parse --short HEAD)"
+
+      - name: Run scraper (publish to Git)
+        env:
+          PYTHONPATH: src
+          MACHINERY_PUBLISHER: git
+          MACHINERY_SITE_DIR: ${{ env.SITE_DIR }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          # Empty .env keeps the cli's (legacy) .env-existence guard happy;
+          # with the cli patch the file is unused on the git path.
+          touch .env
+          python -m machinery_news_scraper run \
+            --source all \
+            --ai-provider gemini \
+            --ai-model gemini-2.5-flash-lite \
+            --auto-publish-threshold 3 \
+            --ai-rpm 10
+
+      - name: Commit & push new items
+        run: |
+          cd "$SITE_DIR"
+          git add src/content/news 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No new items this run — nothing to commit."
+          else
+            N=$(git diff --cached --name-only | wc -l | tr -d ' ')
+            git commit -m "chore(news): auto-scrape $(date -u +%Y-%m-%dT%H:%M:%SZ) (+$N items)"
+            git push origin HEAD:main
+            echo "Pushed $N new items. Cloudflare will rebuild shortly."
+          fi

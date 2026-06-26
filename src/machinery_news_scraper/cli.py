@@ -67,17 +67,15 @@ def main(argv: list[str] | None = None) -> int:
 def _cmd_run(args) -> int:
     setup_logging(args.log_level)
 
-    if not Path(args.env_file).exists():
+    publisher = os.environ.get("MACHINERY_PUBLISHER", "wp").lower()
+
+    # .env is only required for the WP path (it holds WP creds). The Git path
+    # reads GEMINI_API_KEY + MACHINERY_* straight from the environment.
+    if publisher == "wp" and not Path(args.env_file).exists():
         print(f"ERROR: env file not found: {args.env_file}", file=sys.stderr)
         return 1
-    load_dotenv(args.env_file)
-
-    wp_url = os.environ.get("WP_URL")
-    wp_user = os.environ.get("WP_USER")
-    wp_pass = os.environ.get("WP_APP_PASSWORD")
-    if not (wp_url and wp_user and wp_pass):
-        print("ERROR: WP_URL / WP_USER / WP_APP_PASSWORD must be set", file=sys.stderr)
-        return 1
+    if Path(args.env_file).exists():
+        load_dotenv(args.env_file)
 
     sources = load_sources(Path(args.feeds_yaml))
     if args.source != "all":
@@ -103,35 +101,53 @@ def _cmd_run(args) -> int:
     else:
         print("AI: disabled (use --ai-provider gemini to enable)")
 
-    # Build WP category map (slug → ID) so AI categories can be assigned.
-    # Either auto-query or use empty dict (no category assignment).
-    category_map: dict = {}
-    if args.map_categories:
-        import httpx as _httpx
-        try:
-            r = _httpx.get(
-                f"{wp_url.rstrip('/')}/wp-json/wp/v2/categories?per_page=100",
-                auth=(wp_user, wp_pass),
-                timeout=120.0,
-            )
-            r.raise_for_status()
-            for c in r.json():
-                category_map[c["slug"]] = c["id"]
-            print(f"WP categories: {category_map}")
-        except Exception as e:
-            print(f"WARN: failed to fetch WP categories: {e}", file=sys.stderr)
+    # --- publisher construction -------------------------------------------------
+    if publisher == "git":
+        from .pusher.git_publisher import GitPublisher
+        site_dir = os.environ.get("MACHINERY_SITE_DIR", "./machinery-cf-site")
+        client = GitPublisher(
+            site_dir=site_dir,
+            auto_publish_threshold=args.auto_publish_threshold,
+        )
+        print(f"Publisher: GIT  (site_dir={site_dir}, featured when importance >= {args.auto_publish_threshold})")
+    else:
+        wp_url = os.environ.get("WP_URL")
+        wp_user = os.environ.get("WP_USER")
+        wp_pass = os.environ.get("WP_APP_PASSWORD")
+        if not (wp_url and wp_user and wp_pass):
+            print("ERROR: WP_URL / WP_USER / WP_APP_PASSWORD must be set "
+                  "(or switch publisher with MACHINERY_PUBLISHER=git)", file=sys.stderr)
+            return 1
 
-    client = WPClient(
-        base_url=wp_url,
-        username=wp_user,
-        app_password=wp_pass,
-        auto_publish_threshold=args.auto_publish_threshold,
-        category_map=category_map,
-    )
+        category_map: dict = {}
+        if args.map_categories:
+            import httpx as _httpx
+            try:
+                r = _httpx.get(
+                    f"{wp_url.rstrip('/')}/wp-json/wp/v2/categories?per_page=100",
+                    auth=(wp_user, wp_pass),
+                    timeout=120.0,
+                )
+                r.raise_for_status()
+                for c in r.json():
+                    category_map[c["slug"]] = c["id"]
+                print(f"WP categories: {category_map}")
+            except Exception as e:
+                print(f"WARN: failed to fetch WP categories: {e}", file=sys.stderr)
+
+        client = WPClient(
+            base_url=wp_url,
+            username=wp_user,
+            app_password=wp_pass,
+            auto_publish_threshold=args.auto_publish_threshold,
+            category_map=category_map,
+        )
+        print("Publisher: WORDPRESS")
+
     push_fn = lambda item: client.push(item)  # noqa: E731
 
     # Pre-fetch existing source URLs so we can skip AI + push on duplicates.
-    # This saves Gemini API quota (the main cost of the pipeline).
+    # For GitPublisher this scans news/*.md; for WPClient it pages WP REST.
     existing_urls: set[str] | None = None
     if not args.no_predup_check:
         try:

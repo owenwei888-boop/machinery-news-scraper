@@ -1,156 +1,157 @@
 # 30 verified-working sources (probed 2026-06-26).
 # Google News RSS queries return 100 items each, covering thousands of publications.
+# Note: name values with colons must be quoted (YAML rule).
 sources:
   # --- Original 8 (direct + Feedburner) ---
   - id: packaging-digest
-    name: Packaging Digest
+    name: "Packaging Digest"
     url: https://feeds.feedburner.com/PackagingDigest
     source_type: rss
 
   - id: packaging-strategies
-    name: Packaging Strategies
+    name: "Packaging Strategies"
     url: https://feeds.feedburner.com/PackagingStrategies
     source_type: rss
 
   - id: flexible-packaging
-    name: Flexible Packaging
+    name: "Flexible Packaging"
     url: https://feeds.feedburner.com/FlexiblePackaging
     source_type: rss
 
   - id: food-engineering
-    name: Food Engineering
+    name: "Food Engineering"
     url: https://feeds.feedburner.com/FoodEngineering
     source_type: rss
 
   - id: industrial-machinery-news
-    name: Industrial Machinery News
+    name: "Industrial Machinery News"
     url: https://industrialmachinerynews.com/feed/
     source_type: rss
 
   - id: plastics-today
-    name: Plastics Today
+    name: "Plastics Today"
     url: https://www.plasticstoday.com/rss.xml
     source_type: rss
 
   - id: modern-materials-handling
-    name: Modern Materials Handling
+    name: "Modern Materials Handling"
     url: https://www.mmh.com/feed/
     source_type: rss
 
   - id: robot-report
-    name: The Robot Report
+    name: "The Robot Report"
     url: https://www.therobotreport.com/feed/
     source_type: rss
 
   # --- Robotics + tech (direct, working) ---
   - id: robotics-business-review
-    name: Robotics Business Review
+    name: "Robotics Business Review"
     url: https://www.roboticsbusinessreview.com/feed/
     source_type: rss
 
   - id: ieee-spectrum
-    name: IEEE Spectrum (Robotics + AI)
+    name: "IEEE Spectrum (Robotics + AI)"
     url: https://spectrum.ieee.org/feeds/feed.rss
     source_type: rss
 
   # --- Google News RSS aggregators (100 items each, covers 1000s of pubs) ---
   - id: gnews-packaging-machinery
-    name: Google News: packaging machinery
+    name: "Google News: packaging machinery"
     url: https://news.google.com/rss/search?q=packaging+machinery+OR+vffs+OR+%22form+fill+seal%22&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-pouch-packaging
-    name: Google News: pouch packaging
+    name: "Google News: pouch packaging"
     url: https://news.google.com/rss/search?q=pouch+packaging+OR+flexible+packaging&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-packaging-materials
-    name: Google News: packaging materials
+    name: "Google News: packaging materials"
     url: https://news.google.com/rss/search?q=packaging+materials+OR+polymer+film+OR+monomer&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-industrial-robotics
-    name: Google News: industrial robotics
+    name: "Google News: industrial robotics"
     url: https://news.google.com/rss/search?q=industrial+robotics+OR+cobot+OR+%22pick+and+place%22&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-packaging-components
-    name: Google News: packaging components
+    name: "Google News: packaging components"
     url: https://news.google.com/rss/search?q=servo+motor+OR+PLC+OR+%22sealing+bar%22&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-trade-shows
-    name: Google News: interpack OR pack expo
+    name: "Google News: interpack OR pack expo"
     url: https://news.google.com/rss/search?q=interpack+OR+%22pack+expo%22+OR+%22hannover+messe%22&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-machinery-industry
-    name: Google News: machinery industry
+    name: "Google News: machinery industry"
     url: https://news.google.com/rss/search?q=machinery+industry+OR+industrial+equipment+market&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   # --- Batch 2: sustainability + end markets + tech + regional ---
   - id: gnews-sustainable-packaging
-    name: GNews: sustainable packaging
+    name: "GNews: sustainable packaging"
     url: https://news.google.com/rss/search?q=sustainable+packaging+OR+recyclable+packaging+OR+%22plastic+tax%22&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-packaging-recycling
-    name: GNews: packaging recycling regs
+    name: "GNews: packaging recycling regs"
     url: https://news.google.com/rss/search?q=packaging+recycling+OR+EPR+OR+%22extended+producer+responsibility%22&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-pharma-packaging
-    name: GNews: pharma packaging
+    name: "GNews: pharma packaging"
     url: https://news.google.com/rss/search?q=pharmaceutical+packaging+OR+%22blister+pack%22+OR+sterile+packaging&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-food-packaging
-    name: GNews: food packaging
+    name: "GNews: food packaging"
     url: https://news.google.com/rss/search?q=food+packaging+OR+%22food-grade%22+OR+food+safety+packaging&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-beverage-packaging
-    name: GNews: beverage packaging
+    name: "GNews: beverage packaging"
     url: https://news.google.com/rss/search?q=beverage+bottling+OR+%22can+filling%22+OR+beverage+packaging&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-cosmetics-packaging
-    name: GNews: cosmetics packaging
+    name: "GNews: cosmetics packaging"
     url: https://news.google.com/rss/search?q=cosmetics+packaging+OR+beauty+packaging&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-industry40
-    name: GNews: Industry 4.0 / IIoT
+    name: "GNews: Industry 4.0 / IIoT"
     url: https://news.google.com/rss/search?q=%22industry+4.0%22+OR+IIoT+manufacturing&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-machine-vision
-    name: GNews: machine vision inspection
+    name: "GNews: machine vision inspection"
     url: https://news.google.com/rss/search?q=%22machine+vision%22+manufacturing+OR+inspection+system&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-predictive-maintenance
-    name: GNews: predictive maintenance
+    name: "GNews: predictive maintenance"
     url: https://news.google.com/rss/search?q=%22predictive+maintenance%22+manufacturing&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-packaging-ma
-    name: GNews: packaging M&A
+    name: "GNews: packaging M&A"
     url: https://news.google.com/rss/search?q=packaging+acquisition+OR+merger+OR+%22private+equity%22+packaging&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-china-machinery
-    name: GNews: China machinery export
+    name: "GNews: China machinery export"
     url: https://news.google.com/rss/search?q=china+machinery+manufacturing+export&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: gnews-europe-machinery
-    name: GNews: Europe machinery industry
+    name: "GNews: Europe machinery industry"
     url: https://news.google.com/rss/search?q=europe+machinery+industry+OR+%22german+engineering%22&hl=en&gl=US&ceid=US:en
     source_type: rss
 
   - id: recycling-today
-    name: Recycling Today
+    name: "Recycling Today"
     url: https://www.recyclingtoday.com/rss
     source_type: rss

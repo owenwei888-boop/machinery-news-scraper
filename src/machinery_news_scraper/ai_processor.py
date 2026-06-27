@@ -90,12 +90,18 @@ class AIProcessor:
         self._model = model
         self._rpm_limit = rpm_limit
         self._last_call_at = 0.0
+        self._quota_exhausted = False  # short-circuits subsequent calls
 
     def process(self, item: Item) -> Item:
         """Enrich an Item with AI fields. Returns the (possibly new) Item.
 
         On failure: returns the original item unchanged, logs warning.
+        Short-circuits silently (no rate-limit wait) once the daily quota is
+        exhausted — otherwise the pipeline would burn ~6s per item × thousands
+        of items on the rate limiter, blowing the workflow timeout.
         """
+        if self._quota_exhausted:
+            return item
         try:
             self._respect_rate_limit()
             prompt = PROMPT_TEMPLATE.format(
@@ -117,7 +123,15 @@ class AIProcessor:
                 ai_buyer_angle=parsed.get("buyer_angle"),
             )
         except Exception as e:
-            log.warning("AI processing failed for %s: %s", item.url, e)
+            msg = str(e)
+            # 429 RESOURCE_EXHAUSTED = Gemini daily free-tier quota hit.
+            # Stop calling — every subsequent call will fail the same way and
+            # the rate-limiter sleep would compound into a workflow timeout.
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower():
+                log.warning("Gemini quota exhausted — short-circuiting remaining items")
+                self._quota_exhausted = True
+            else:
+                log.warning("AI processing failed for %s: %s", item.url, e)
             return item  # unchanged — pipeline pushes raw
 
     def _respect_rate_limit(self) -> None:

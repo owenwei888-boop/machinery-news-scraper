@@ -89,14 +89,25 @@ jobs:
             --auto-publish-threshold 3 \
             --ai-rpm 10
 
+      - name: Prune to build window (keep Astro build bounded)
+        # Keeps the newest 3000 items in src/content/news; moves the rest to
+        # archive/news (still in git, excluded from the build). Without this
+        # the collection grew to 13.6k files and every Workers Build after
+        # 2026-08-24 failed. Node is preinstalled on ubuntu-latest.
+        run: |
+          cd "$SITE_DIR"
+          node scripts/prune-news.mjs
+
       - name: Commit & push new items
         run: |
           cd "$SITE_DIR"
-          git add src/content/news 2>/dev/null || true
+          # -A sweeps both the new items and the prune moves (news -> archive).
+          # dist/ and node_modules/ are gitignored, so nothing else leaks in.
+          git add -A
           if git diff --cached --quiet; then
             echo "No new items this run — nothing to commit."
           else
-            N=$(git diff --cached --name-only | wc -l | tr -d ' ')
+            N=$(git diff --cached --name-only --diff-filter=A -- src/content/news | wc -l | tr -d ' ')
             git commit -m "chore(news): auto-scrape $(date -u +%Y-%m-%dT%H:%M:%SZ) (+$N items)"
             git push origin HEAD:main
             echo "Pushed $N new items. Cloudflare will rebuild shortly."

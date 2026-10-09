@@ -58,7 +58,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Clone cf-site repo (deploy-key auth)
-        # Repo-scoped SSH deploy key — no expiring PAT. Clones AND the
+        # Repo-scoped SSH deploy key - no expiring PAT. Clones AND the
         # later git push both go over SSH with this key.
         env:
           DEPLOY_KEY: ${{ secrets.SITE_DEPLOY_KEY }}
@@ -68,8 +68,7 @@ jobs:
             exit 1
           fi
           mkdir -p ~/.ssh
-          printf '%s
-' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          echo "$DEPLOY_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
           git clone --depth 1 git@github.com:owenwei888-boop/machinery-cf-site.git "$SITE_DIR"
@@ -98,8 +97,8 @@ jobs:
       - name: Prune to build window (keep Astro build bounded)
         # Keeps the newest 3000 items in src/content/news; moves the rest to
         # archive/news (still in git, excluded from the build). Without this
-        # the collection grew to 13.6k files and every Workers Build after
-        # 2026-08-24 failed. Node is preinstalled on ubuntu-latest.
+        # the collection grew to 13.6k files and Workers Builds died on
+        # 2026-08-24. Node is preinstalled on ubuntu-latest.
         run: |
           cd "$SITE_DIR"
           node scripts/prune-news.mjs
@@ -107,11 +106,11 @@ jobs:
       - name: Commit & push new items
         run: |
           cd "$SITE_DIR"
-          # -A sweeps both the new items and the prune moves (news -> archive).
-          # dist/ and node_modules/ are gitignored, so nothing else leaks in.
+          # -A sweeps both new items and prune moves; dist/ and node_modules/
+          # are gitignored so nothing else leaks in.
           git add -A
           if git diff --cached --quiet; then
-            echo "No new items this run — nothing to commit."
+            echo "No new items this run - nothing to commit."
           else
             N=$(git diff --cached --name-only --diff-filter=A -- src/content/news | wc -l | tr -d ' ')
             git commit -m "chore(news): auto-scrape $(date -u +%Y-%m-%dT%H:%M:%SZ) (+$N items)"

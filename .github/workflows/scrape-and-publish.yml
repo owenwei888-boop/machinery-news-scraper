@@ -8,9 +8,12 @@
 #   - Cloudflare Pages watches machinery-cf-site → rebuilds automatically.
 #
 # Secret required:
-#   SITE_REPO_PAT  — fine-grained PAT with "Contents: Read and Write" on
-#                    owenwei888-boop/machinery-cf-site. Create at:
-#                    https://github.com/settings/personal-access-tokens/new
+#   SITE_DEPLOY_KEY — SSH private key; its public half is a write Deploy
+#                    Key on owenwei888-boop/machinery-cf-site ("scraper-
+#                    publish (GitHub Actions)"). Repo-scoped and never
+#                    expires; replaces the fine-grained PAT that died on
+#                    2026-09-24.
+
 #
 # Old WP-pushing workflow (scrape.yml) was deleted when this landed.
 
@@ -54,19 +57,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Clone cf-site repo
-        # PAT injected into URL so subsequent `git push` from inside the
-        # clone doesn't need interactive creds. Token never logged.
+      - name: Clone cf-site repo (deploy-key auth)
+        # Repo-scoped SSH deploy key — no expiring PAT. Clones AND the
+        # later git push both go over SSH with this key.
         env:
-          PAT: ${{ secrets.SITE_REPO_PAT }}
+          DEPLOY_KEY: ${{ secrets.SITE_DEPLOY_KEY }}
         run: |
-          if [ -z "$PAT" ]; then
-            echo "ERROR: SITE_REPO_PAT secret not set" >&2
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "ERROR: SITE_DEPLOY_KEY secret not set" >&2
             exit 1
           fi
-          # Inject PAT between scheme and host: https://x-access-token:TOKEN@github.com/...
-          AUTH_URL="https://x-access-token:${PAT}@github.com/owenwei888-boop/machinery-cf-site.git"
-          git clone --depth 1 "$AUTH_URL" "$SITE_DIR"
+          mkdir -p ~/.ssh
+          printf '%s
+' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+          git clone --depth 1 git@github.com:owenwei888-boop/machinery-cf-site.git "$SITE_DIR"
           cd "$SITE_DIR"
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

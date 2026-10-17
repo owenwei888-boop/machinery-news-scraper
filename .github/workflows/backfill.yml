@@ -90,11 +90,13 @@ jobs:
           if git diff --cached --quiet; then
             echo "Nothing enriched — no commit."
           else
-            # Rebase first: the scraper (or an earlier backfill batch) may
-            # have pushed while we were enriching.
-            git pull --rebase origin main
+            # Commit FIRST, then rebase — pull --rebase refuses to run with
+            # a dirty index, and the scraper may have pushed while we
+            # enriched. Scraper adds new files, backfill edits different
+            # (empty-summary) ones, so the rebase never conflicts.
             N=$(git diff --cached --name-only | wc -l | tr -d ' ')
             git commit -m "chore(news): AI backfill $(date -u +%Y-%m-%dT%H:%M:%SZ) (+$N enriched)"
+            git pull --rebase origin main
             git push origin HEAD:main
             echo "Pushed $N enriched items. Cloudflare will rebuild shortly."
           fi

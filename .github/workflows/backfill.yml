@@ -21,6 +21,13 @@ on:
         description: "Gemini calls per minute"
         required: false
         default: "12"
+  # Daily self-heal until the backlog is dry: Gemini free quota resets
+  # ~07:00 UTC; both keys together cover ~400 items/day (measured
+  # 2026-10-17: 395 enriched before both pools hit their daily caps).
+  # When the log says "0 items lack summaries" the run no-ops in ~3 min —
+  # delete this schedule line once the backlog is gone.
+  schedule:
+    - cron: '12 7 * * *'
 
 permissions:
   contents: read

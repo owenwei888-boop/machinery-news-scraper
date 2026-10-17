@@ -1,0 +1,95 @@
+# Backfill AI summaries for already-published md items (empty aiSummary).
+#
+# The scrape workflow short-circuits enrichment when Gemini quota dies and
+# never retries those items — this job heals the backlog in bounded batches.
+# Trigger manually (Actions → Backfill AI → Run workflow). Repeat until the
+# log line says "0 items lack summaries".
+#
+# Shares the scrape-publish concurrency group so backfill and scrape pushes
+# to machinery-cf-site never overlap.
+
+name: Backfill AI
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Max items to enrich this run"
+        required: false
+        default: "300"
+      rpm:
+        description: "Gemini calls per minute"
+        required: false
+        default: "12"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scrape-publish
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    env:
+      SITE_REPO: https://github.com/owenwei888-boop/machinery-cf-site.git
+      SITE_DIR: ./machinery-cf-site
+
+    steps:
+      - name: Checkout scraper
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install scraper dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Clone cf-site repo
+        env:
+          PAT: ${{ secrets.SITE_REPO_PAT }}
+        run: |
+          if [ -z "$PAT" ]; then
+            echo "ERROR: SITE_REPO_PAT secret not set" >&2
+            exit 1
+          fi
+          AUTH_URL="https://x-access-token:${PAT}@github.com/owenwei888-boop/machinery-cf-site.git"
+          git clone --depth 1 "$AUTH_URL" "$SITE_DIR"
+          cd "$SITE_DIR"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "Cloned cf-site @ $(git rev-parse --short HEAD)"
+
+      - name: Run backfill
+        env:
+          GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python backfill_md.py \
+            --site-dir "$SITE_DIR" \
+            --limit "${{ github.event.inputs.limit || '300' }}" \
+            --rpm "${{ github.event.inputs.rpm || '12' }}"
+
+      - name: Commit & push enriched items
+        run: |
+          cd "$SITE_DIR"
+          git add src/content/news 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "Nothing enriched — no commit."
+          else
+            # Rebase first: the scraper (or an earlier backfill batch) may
+            # have pushed while we were enriching.
+            git pull --rebase origin main
+            N=$(git diff --cached --name-only | wc -l | tr -d ' ')
+            git commit -m "chore(news): AI backfill $(date -u +%Y-%m-%dT%H:%M:%SZ) (+$N enriched)"
+            git push origin HEAD:main
+            echo "Pushed $N enriched items. Cloudflare will rebuild shortly."
+          fi

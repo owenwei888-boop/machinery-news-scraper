@@ -38,8 +38,8 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument("--ai-provider", default=None,
                      choices=["gemini"],
                      help="AI provider for summary/category/importance. Reads API key from env.")
-    run.add_argument("--ai-model", default="gemini-2.5-flash-lite",
-                     help="AI model (default: gemini-2.5-flash-lite — higher free-tier quota than 2.5-flash)")
+    run.add_argument("--ai-model", default="gemini-3.5-flash-lite",
+                     help="AI model (default: gemini-3.5-flash-lite; 2.5-flash-lite is sunset for new keys)")
     run.add_argument("--auto-publish-threshold", type=int, default=0,
                      help="Auto-publish items with ai_importance >= this (0=never, default). "
                           "Recommended: 3 (frontpage-worthy) or 4 (only major).")
@@ -87,17 +87,22 @@ def _cmd_run(args) -> int:
     # Build AI processor if configured
     ai_processor = None
     if args.ai_provider == "gemini":
-        gemini_key = os.environ.get("GEMINI_API_KEY")
-        if not gemini_key:
-            print("ERROR: --ai-provider=gemini but GEMINI_API_KEY not set in env", file=sys.stderr)
+        # GEMINI_API_KEYS (comma-separated, rotation) wins; fall back to the
+        # legacy single GEMINI_API_KEY. Duplicates dropped, order preserved.
+        keys = [k.strip() for k in os.environ.get("GEMINI_API_KEYS", "").split(",") if k.strip()]
+        single = os.environ.get("GEMINI_API_KEY", "").strip()
+        if single and single not in keys:
+            keys.append(single)
+        if not keys:
+            print("ERROR: --ai-provider=gemini but GEMINI_API_KEYS/GEMINI_API_KEY not set in env", file=sys.stderr)
             return 1
         from .ai_processor import AIProcessor  # lazy import — google-genai is optional
         ai_processor = AIProcessor(
-            api_key=gemini_key,
+            api_key=",".join(keys),
             model=args.ai_model,
             rpm_limit=args.ai_rpm,
         )
-        print(f"AI: enabled ({args.ai_model}, auto-publish >= {args.auto_publish_threshold})")
+        print(f"AI: enabled ({args.ai_model}, {len(keys)} key(s), auto-publish >= {args.auto_publish_threshold})")
     else:
         print("AI: disabled (use --ai-provider gemini to enable)")
 

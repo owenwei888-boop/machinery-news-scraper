@@ -108,7 +108,10 @@ def rewrite_md(path: Path, item: Item) -> None:
         "aiCategory": category,
         "aiTags": list(item.ai_tags or ()),
         "aiBuyerAngle": item.ai_buyer_angle or "",
-        "featured": _unquote(fm.get("featured"), "false") or "false",
+        # featured must stay a YAML boolean — passing the string through
+        # _yaml_scalar would quote it ("false") and fail the site's Zod
+        # schema, killing the whole Cloudflare build.
+        "featured": _unquote(fm.get("featured"), "false").lower() == "true",
     }
     lines = ["---"]
     for key, val in new_fm.items():

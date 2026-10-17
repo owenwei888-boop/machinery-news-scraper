@@ -53,16 +53,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: Clone cf-site repo
+      - name: Clone cf-site repo (deploy-key auth)
+        # Same SSH deploy key as the scrape workflow (the old fine-grained
+        # PAT died 2026-09-24; SITE_DEPLOY_KEY is repo-scoped and permanent).
         env:
-          PAT: ${{ secrets.SITE_REPO_PAT }}
+          DEPLOY_KEY: ${{ secrets.SITE_DEPLOY_KEY }}
         run: |
-          if [ -z "$PAT" ]; then
-            echo "ERROR: SITE_REPO_PAT secret not set" >&2
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "ERROR: SITE_DEPLOY_KEY secret not set" >&2
             exit 1
           fi
-          AUTH_URL="https://x-access-token:${PAT}@github.com/owenwei888-boop/machinery-cf-site.git"
-          git clone --depth 1 "$AUTH_URL" "$SITE_DIR"
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+          git clone --depth 1 git@github.com:owenwei888-boop/machinery-cf-site.git "$SITE_DIR"
           cd "$SITE_DIR"
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

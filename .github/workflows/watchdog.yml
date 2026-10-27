@@ -1,0 +1,46 @@
+# Watchdog: alert when the live site stops refreshing.
+#
+# The scrape pipeline (4x/day) pushes → Cloudflare rebuilds → stats.json's
+# generated_at moves. If that timestamp goes stale the pipeline is down
+# (2026-10-25..27: five consecutive 60-min timeouts published nothing for
+# 3 days and nothing noticed — logs looked "scheduled", site was frozen).
+#
+# 24h threshold = four missed cycles, so a quiet feed day (no new items →
+# no push) can't false-alarm. GitHub emails the repo owner on failure by
+# default — that's the alert channel.
+
+name: Watchdog
+
+on:
+  schedule:
+    # Daily at 09:23 UTC — after the 09:07 scrape + ~3min CF rebuild.
+    - cron: '23 9 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check site freshness (stats.json generated_at)
+        run: |
+          python3 - <<'EOF'
+          import json, sys, urllib.request
+          from datetime import datetime, timezone
+          url = "https://aihot.the-packing-machine.com/api/stats.json"
+          req = urllib.request.Request(url, headers={"User-Agent": "machinery-watchdog"})
+          d = json.load(urllib.request.urlopen(req, timeout=30))
+          gen = datetime.fromisoformat(d["generated_at"].replace("Z", "+00:00"))
+          age_h = (datetime.now(timezone.utc) - gen).total_seconds() / 3600
+          t = d["totals"]
+          print(f"generated_at={d['generated_at']}  age={age_h:.1f}h  "
+                f"items={t['items']}  with_ai_summary={t['with_ai_summary']}")
+          if age_h > 24:
+              print("::error::Site is stale — last build >24h ago. "
+                    "Scrape & Publish pipeline is likely down.")
+              sys.exit(1)
+          print("OK — site refreshed within 24h.")
+          EOF

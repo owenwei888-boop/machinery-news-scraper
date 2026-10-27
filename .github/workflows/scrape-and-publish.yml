@@ -35,7 +35,10 @@ concurrency:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # 75 not 60: a full in-flight backlog (~1200 items) needs ~30-40 min of
+    # AI at rpm 10 + scrape/prune/push. 60 was dying mid-run when a dead key
+    # ground 403s (fixed in ai_processor) — this is headroom, not the fix.
+    timeout-minutes: 75
 
     env:
       # The cf-site repo we clone + push Markdown back to

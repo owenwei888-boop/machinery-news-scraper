@@ -171,15 +171,26 @@ class AIProcessor:
                 msg = str(e)
                 # 429 RESOURCE_EXHAUSTED = this key's daily quota is gone;
                 # 404 = model sunset for this key's project (newer keys lose
-                # old models). Both are per-KEY fatal → rotate, don't abort.
+                # old models); 403 PERMISSION_DENIED "free tier is not
+                # available for this project" = project-level ban (seen
+                # 2026-10-25 — every call from that key fails). All three are
+                # per-KEY fatal → rotate, don't grind item-by-item (~6s each).
                 is_quota = (
                     "429" in msg or "RESOURCE_EXHAUSTED" in msg or "quota" in msg.lower()
                 )
                 is_model_gone = " 404" in msg or "NOT_FOUND" in msg or (
                     "no longer available" in msg.lower()
                 )
-                if is_quota or is_model_gone:
-                    if not self._rotate_client("quota/model" if is_quota else "model gone"):
+                is_banned = "403" in msg or "PERMISSION_DENIED" in msg or (
+                    "free tier is not available" in msg.lower()
+                )
+                if is_quota or is_model_gone or is_banned:
+                    reason = (
+                        "quota" if is_quota
+                        else "model gone" if is_model_gone
+                        else "banned (403)"
+                    )
+                    if not self._rotate_client(reason):
                         log.warning(
                             "All Gemini keys exhausted — short-circuiting remaining items"
                         )

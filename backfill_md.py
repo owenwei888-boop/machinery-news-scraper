@@ -133,7 +133,9 @@ def main() -> int:
                     help="Clone of machinery-cf-site (default: ./machinery-cf-site)")
     ap.add_argument("--limit", type=int, default=300,
                     help="Max items to enrich this run (default 300; ~25 min at rpm 12)")
-    ap.add_argument("--model", default="gemini-3.5-flash-lite")
+    ap.add_argument("--provider", default="gemini", choices=["gemini", "deepseek"])
+    ap.add_argument("--model", default=None,
+                    help="Model id (default: gemini-3.5-flash-lite / deepseek-flash)")
     ap.add_argument("--rpm", type=int, default=12)
     ap.add_argument("--newest-first", action="store_true", default=True,
                     help="Enrich newest items first (site home window covers recent)")
@@ -145,13 +147,17 @@ def main() -> int:
         return 1
 
     import os
-    keys = [k.strip() for k in os.environ.get("GEMINI_API_KEYS", "").split(",") if k.strip()]
-    single = os.environ.get("GEMINI_API_KEY", "").strip()
+    env_multi = f"{args.provider.upper()}_API_KEYS"
+    env_single = f"{args.provider.upper()}_API_KEY"
+    keys = [k.strip() for k in os.environ.get(env_multi, "").split(",") if k.strip()]
+    single = os.environ.get(env_single, "").strip()
     if single and single not in keys:
         keys.append(single)
     if not keys:
-        print("ERROR: GEMINI_API_KEYS / GEMINI_API_KEY not set", file=sys.stderr)
+        print(f"ERROR: {env_multi} / {env_single} not set", file=sys.stderr)
         return 1
+    model = args.model or ("deepseek-flash" if args.provider == "deepseek"
+                           else "gemini-3.5-flash-lite")
 
     # Collect candidates: md files with empty aiSummary, newest first.
     candidates: list[tuple[Path, dict[str, str]]] = []
@@ -167,7 +173,8 @@ def main() -> int:
     )
     print(f"Backfill: {len(candidates)} items lack summaries; enriching up to {args.limit}")
 
-    ai = AIProcessor(api_key=",".join(keys), model=args.model, rpm_limit=args.rpm)
+    ai = AIProcessor(api_key=",".join(keys), model=model, rpm_limit=args.rpm,
+                     provider=args.provider)
 
     done = skipped = 0
     for md, fm in candidates[: args.limit]:
@@ -185,6 +192,8 @@ def main() -> int:
 
     print(f"DONE: {done} enriched, {skipped} failed this run, "
           f"{max(0, len(candidates) - done - skipped)} still empty.")
+    if ai.usage["in"] or ai.usage["out"]:
+        print(f"AI tokens this run ({args.provider}): {ai.usage['in']} in / {ai.usage['out']} out")
     return 0
 
 

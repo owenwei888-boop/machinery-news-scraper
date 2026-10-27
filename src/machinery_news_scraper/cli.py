@@ -36,8 +36,9 @@ def _build_parser() -> argparse.ArgumentParser:
                      choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     # AI options — all optional. If --ai-provider is set, AI enrichment runs.
     run.add_argument("--ai-provider", default=None,
-                     choices=["gemini"],
-                     help="AI provider for summary/category/importance. Reads API key from env.")
+                     choices=["gemini", "deepseek"],
+                     help="AI provider for summary/category/importance. Reads API key from env "
+                          "(GEMINI_API_KEYS/GEMINI_API_KEY or DEEPSEEK_API_KEYS/DEEPSEEK_API_KEY).")
     run.add_argument("--ai-model", default="gemini-3.5-flash-lite",
                      help="AI model (default: gemini-3.5-flash-lite; 2.5-flash-lite is sunset for new keys)")
     run.add_argument("--auto-publish-threshold", type=int, default=0,
@@ -89,25 +90,28 @@ def _cmd_run(args) -> int:
 
     # Build AI processor if configured
     ai_processor = None
-    if args.ai_provider == "gemini":
-        # GEMINI_API_KEYS (comma-separated, rotation) wins; fall back to the
-        # legacy single GEMINI_API_KEY. Duplicates dropped, order preserved.
-        keys = [k.strip() for k in os.environ.get("GEMINI_API_KEYS", "").split(",") if k.strip()]
-        single = os.environ.get("GEMINI_API_KEY", "").strip()
+    if args.ai_provider in ("gemini", "deepseek"):
+        env_multi = f"{args.ai_provider.upper()}_API_KEYS"
+        env_single = f"{args.ai_provider.upper()}_API_KEY"
+        # <PROV>_API_KEYS (comma-separated, rotation) wins; fall back to the
+        # legacy single <PROV>_API_KEY. Duplicates dropped, order preserved.
+        keys = [k.strip() for k in os.environ.get(env_multi, "").split(",") if k.strip()]
+        single = os.environ.get(env_single, "").strip()
         if single and single not in keys:
             keys.append(single)
         if not keys:
-            print("ERROR: --ai-provider=gemini but GEMINI_API_KEYS/GEMINI_API_KEY not set in env", file=sys.stderr)
+            print(f"ERROR: --ai-provider={args.ai_provider} but {env_multi}/{env_single} not set in env", file=sys.stderr)
             return 1
-        from .ai_processor import AIProcessor  # lazy import — google-genai is optional
+        from .ai_processor import AIProcessor  # lazy import — vendor SDKs are optional
         ai_processor = AIProcessor(
             api_key=",".join(keys),
             model=args.ai_model,
             rpm_limit=args.ai_rpm,
+            provider=args.ai_provider,
         )
-        print(f"AI: enabled ({args.ai_model}, {len(keys)} key(s), auto-publish >= {args.auto_publish_threshold})")
+        print(f"AI: enabled ({args.ai_provider}/{args.ai_model}, {len(keys)} key(s), auto-publish >= {args.auto_publish_threshold})")
     else:
-        print("AI: disabled (use --ai-provider gemini to enable)")
+        print("AI: disabled (use --ai-provider gemini|deepseek to enable)")
 
     # --- publisher construction -------------------------------------------------
     if publisher == "git":
@@ -175,4 +179,7 @@ def _cmd_run(args) -> int:
         max_new_items=args.max_new,
     )
     print(f"pipeline done: {stats}")
+    if ai_processor is not None and (ai_processor.usage["in"] or ai_processor.usage["out"]):
+        u = ai_processor.usage
+        print(f"AI tokens this run: {u['in']} in / {u['out']} out")
     return 0

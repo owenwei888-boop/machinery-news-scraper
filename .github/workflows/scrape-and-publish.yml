@@ -85,6 +85,10 @@ jobs:
           PYTHONPATH: src
           MACHINERY_PUBLISHER: git
           MACHINERY_SITE_DIR: ${{ env.SITE_DIR }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          # Gemini kept as a switch-back option: both keys died 2026-10-27
+          # (one project-banned 403, one revoked 401). Flip --ai-provider to
+          # gemini and these come back into play.
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
@@ -93,13 +97,13 @@ jobs:
           touch .env
           python -m machinery_news_scraper run \
             --source all \
-            --ai-provider gemini \
-            --ai-model gemini-3.5-flash-lite \
+            --ai-provider deepseek \
+            --ai-model deepseek-flash \
             --auto-publish-threshold 3 \
             --ai-rpm 10 \
             --max-new 300
-        # GEMINI_API_KEYS (rotation pool) is preferred; GEMINI_API_KEY kept
-        # as single-key fallback. gemini-2.5-flash-lite is sunset for new keys.
+        # deepseek-flash = DeepSeek-V4.1-Flash. Paid API (~¥0.003/item,
+        # ~¥8/month) — no free-tier roulette. Each run prints its token usage.
 
       - name: Prune to build window (keep Astro build bounded)
         # Keeps the newest 3000 items in src/content/news; moves the rest to

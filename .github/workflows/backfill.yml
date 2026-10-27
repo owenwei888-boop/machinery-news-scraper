@@ -21,11 +21,11 @@ on:
         description: "Gemini calls per minute"
         required: false
         default: "12"
-  # Daily self-heal until the backlog is dry: Gemini free quota resets
-  # ~07:00 UTC; both keys together cover ~400 items/day (measured
-  # 2026-10-17: 395 enriched before both pools hit their daily caps).
-  # When the log says "0 items lack summaries" the run no-ops in ~3 min —
-  # delete this schedule line once the backlog is gone.
+  # Daily self-heal, kept PERMANENTLY: whenever AI dies mid-day (quota,
+  # key revoked, billing) the scrape workflow publishes un-enriched items;
+  # this job re-enriches them the next morning (~3 min no-op when dry).
+  # Provider: DeepSeek V4.1-Flash (paid, ~¥0.003/item) since 2026-10-27 —
+  # both Gemini free keys died (project ban + key revocation).
   schedule:
     - cron: '12 7 * * *'
 
@@ -82,11 +82,13 @@ jobs:
 
       - name: Run backfill
         env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           python backfill_md.py \
             --site-dir "$SITE_DIR" \
+            --provider deepseek \
             --limit "${{ github.event.inputs.limit || '300' }}" \
             --rpm "${{ github.event.inputs.rpm || '12' }}"
 

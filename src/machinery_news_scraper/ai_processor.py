@@ -102,24 +102,61 @@ class AIProcessor:
         api_key: str,
         model: str = "gemini-3.5-flash-lite",
         rpm_limit: int = 15,
+        provider: str = "gemini",
     ):
         keys = [k.strip() for k in (api_key or "").split(",") if k.strip()]
         if not keys:
             raise ValueError("AIProcessor needs at least one API key")
-        # Import inside __init__ so the module can be loaded without the SDK
-        # installed (e.g., during tests that don't use AI).
-        try:
-            from google import genai
-        except ImportError as e:
-            raise ImportError(
-                "google-genai SDK not installed. Run: pip install google-genai"
-            ) from e
-        self._clients = [(k, genai.Client(api_key=k)) for k in keys]
+        self._provider = provider
+        self.usage = {"in": 0, "out": 0}  # token totals (cost visibility)
+        if provider == "deepseek":
+            # OpenAI-compatible REST via httpx — no vendor SDK needed.
+            import httpx
+            self._http = httpx.Client(timeout=90, trust_env=False)
+            self._clients = [(k, None) for k in keys]
+        elif provider == "gemini":
+            # Import inside __init__ so the module can be loaded without the SDK
+            # installed (e.g., during tests that don't use AI).
+            try:
+                from google import genai
+            except ImportError as e:
+                raise ImportError(
+                    "google-genai SDK not installed. Run: pip install google-genai"
+                ) from e
+            self._clients = [(k, genai.Client(api_key=k)) for k in keys]
+        else:
+            raise ValueError(f"unknown AI provider: {provider}")
         self._client_idx = 0
         self._model = model
         self._rpm_limit = rpm_limit
         self._last_call_at = 0.0
         self._quota_exhausted = False  # True only when ALL keys are dead
+
+    def _call_deepseek(self, key: str, prompt: str) -> str:
+        """One DeepSeek chat/completions call. Raises RuntimeError whose
+        message embeds the HTTP status ("401 …", "429 …") so the existing
+        key-rotation matching in process() classifies it correctly."""
+        resp = self._http.post(
+            "https://api.deepseek.com/chat/completions",
+            headers={"Authorization": f"Bearer {key}"},
+            json={
+                "model": self._model,
+                "messages": [{"role": "user", "content": prompt}],
+                "response_format": {"type": "json_object"},
+                # V4.1-Flash is a thinking model: default "high" effort burns
+                # ~400 reasoning tokens per call and can truncate the JSON
+                # against max_tokens. "low" still reasons briefly and finish=stop.
+                "reasoning_effort": "low",
+                "max_tokens": 2048,
+            },
+        )
+        if resp.status_code != 200:
+            raise RuntimeError(f"deepseek {resp.status_code} {resp.text[:300]}")
+        data = resp.json()
+        u = data.get("usage") or {}
+        self.usage["in"] += int(u.get("prompt_tokens") or 0)
+        self.usage["out"] += int(u.get("completion_tokens") or 0)
+        return data["choices"][0]["message"]["content"]
 
     def _rotate_client(self, reason: str) -> bool:
         """Drop the current key and move to the next live one.
@@ -129,8 +166,8 @@ class AIProcessor:
         """
         dead_key = self._clients.pop(self._client_idx)
         log.warning(
-            "Gemini key #%d unusable (%s) — %d key(s) left",
-            self._client_idx, reason, len(self._clients),
+            "%s key #%d unusable (%s) — %d key(s) left",
+            self._provider, self._client_idx, reason, len(self._clients),
         )
         if self._client_idx >= len(self._clients):
             self._client_idx = 0
@@ -154,11 +191,15 @@ class AIProcessor:
                     excerpt=item.excerpt[:500] if item.excerpt else "(no excerpt)",
                     source_id=item.source_id,
                 )
-                response = client.models.generate_content(
-                    model=self._model,
-                    contents=prompt,
-                )
-                parsed = self._parse_response(response.text)
+                if self._provider == "deepseek":
+                    text = self._call_deepseek(key, prompt)
+                else:
+                    response = client.models.generate_content(
+                        model=self._model,
+                        contents=prompt,
+                    )
+                    text = response.text
+                parsed = self._parse_response(text)
                 return replace(
                     item,
                     ai_summary=parsed.get("summary"),
@@ -189,12 +230,15 @@ class AIProcessor:
                 is_revoked = "401" in msg or "Unauthorized" in msg or (
                     "api key not valid" in msg.lower() or "API_KEY_INVALID" in msg
                 )
-                if is_quota or is_model_gone or is_banned or is_revoked:
+                # DeepSeek 402 = balance exhausted (paid API) — same grind risk.
+                is_broke = "402" in msg or "insufficient balance" in msg.lower()
+                if is_quota or is_model_gone or is_banned or is_revoked or is_broke:
                     reason = (
                         "quota" if is_quota
                         else "model gone" if is_model_gone
                         else "banned (403)" if is_banned
-                        else "revoked (401)"
+                        else "revoked (401)" if is_revoked
+                        else "no balance (402)"
                     )
                     if not self._rotate_client(reason):
                         log.warning(

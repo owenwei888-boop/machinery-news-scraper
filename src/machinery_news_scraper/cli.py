@@ -45,6 +45,9 @@ def _build_parser() -> argparse.ArgumentParser:
                           "Recommended: 3 (frontpage-worthy) or 4 (only major).")
     run.add_argument("--ai-rpm", type=int, default=15,
                      help="Max AI API calls per minute (rate limit, default 15 for Gemini free tier)")
+    run.add_argument("--max-new", type=int, default=0,
+                     help="Process only the newest N scraped items per run (0=all). Keeps each "
+                          "run inside the Actions timeout; the rest return with the next scrape.")
     run.add_argument("--map-categories", action="store_true", default=False,
                      help="Auto-query WP categories and map AI category slugs to WP IDs "
                           "(machines, components, materials, robotics, industry, trade-shows)")
@@ -169,6 +172,7 @@ def _cmd_run(args) -> int:
         base_delay=args.base_delay,
         ai_processor=ai_processor,
         existing_urls=existing_urls,
+        max_new_items=args.max_new,
     )
     print(f"pipeline done: {stats}")
     return 0

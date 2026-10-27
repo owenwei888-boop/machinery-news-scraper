@@ -96,7 +96,8 @@ jobs:
             --ai-provider gemini \
             --ai-model gemini-3.5-flash-lite \
             --auto-publish-threshold 3 \
-            --ai-rpm 10
+            --ai-rpm 10 \
+            --max-new 300
         # GEMINI_API_KEYS (rotation pool) is preferred; GEMINI_API_KEY kept
         # as single-key fallback. gemini-2.5-flash-lite is sunset for new keys.
 

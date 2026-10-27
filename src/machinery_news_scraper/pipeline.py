@@ -2,6 +2,7 @@
 """Orchestrates: replay queue → scrape sources → filter EN → AI enrich → push with retry → queue failures."""
 from __future__ import annotations
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 import logging
 from typing import Callable, Optional, TYPE_CHECKING
@@ -52,6 +53,7 @@ def run_pipeline(
     queue_replay_limit: int = 100,
     ai_processor: "Optional[AIProcessor]" = None,
     existing_urls: Optional[set[str]] = None,
+    max_new_items: int = 0,
 ) -> PipelineStats:
     stats = PipelineStats()
     queue = FailedQueue(queue_path)
@@ -90,6 +92,18 @@ def run_pipeline(
         if skipped:
             log.info("pre-dedup skipped %d already-on-WP items (saved %d AI calls)",
                      skipped, skipped if ai_processor else 0)
+
+    # 3.55. Per-run cap: with a healthy key, AI at rpm 10 costs ~6s/item — an
+    # uncapped 1000+ item backlog blows any Actions timeout mid-run and the
+    # whole run (including already-enriched items) is lost, every run (seen
+    # 2026-10-25..27). Keep only the newest N; the rest reappear in the next
+    # scheduled scrape — feeds are the source of truth, nothing is lost.
+    if max_new_items and len(english_items) > max_new_items:
+        english_items.sort(key=lambda i: i.published_at or datetime.min, reverse=True)
+        deferred = len(english_items) - max_new_items
+        english_items = english_items[:max_new_items]
+        log.info("run cap: processing newest %d this run, %d deferred to next runs",
+                 max_new_items, deferred)
 
     # 3.6. AI enrichment (optional, only on items not already on WP)
     if ai_processor is not None and english_items:

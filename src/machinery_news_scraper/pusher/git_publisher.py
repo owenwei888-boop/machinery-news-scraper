@@ -84,25 +84,35 @@ class GitPublisher:
         self._seen: set[str] | None = None
 
     def fetch_existing_source_urls(self) -> set[str]:
-        """Scan news/*.md for `sourceUrl:` lines.
+        """Scan news/*.md (and archive/news/*.md) for `sourceUrl:` lines.
 
         Uses a regex line-scan instead of a full YAML parse: O(lines), no
         PyYAML dependency, and fast even with thousands of files.
+
+        Archive MUST be scanned too: pruned items keep surfacing in feeds,
+        and without their URLs in this set each run re-enriches (re-buys)
+        them — measured ~240 redundant AI calls per run on 2026-10-30,
+        ~80% of the DeepSeek bill.
         """
         urls: set[str] = set()
+        scanned = 0
+        dirs = [self.news_dir, self.site_dir / "archive" / "news"]
         if not self.news_dir.exists():
             log.info("news dir does not exist yet (first run): %s", self.news_dir)
-            self._seen = urls
-            return urls
-        for md in self.news_dir.glob("*.md"):
-            try:
-                m = _FRONTMATTER_RE.search(md.read_text(encoding="utf-8", errors="replace"))
-            except OSError:
+        for d in dirs:
+            if not d.exists():
                 continue
-            if m:
-                urls.add(m.group(1).strip())
-        log.info("git publisher: %d existing items on disk", len(urls))
+            for md in d.glob("*.md"):
+                try:
+                    m = _FRONTMATTER_RE.search(md.read_text(encoding="utf-8", errors="replace"))
+                except OSError:
+                    continue
+                if m:
+                    urls.add(m.group(1).strip())
+                    scanned += 1
         self._seen = urls
+        log.info("git publisher: %d existing items on disk (%d urls)",
+                 scanned, len(urls))
         return urls
 
     def push(self, item: Item) -> PushResult:

@@ -274,6 +274,57 @@ class AIProcessor:
         return parsed if isinstance(parsed, dict) else {}
 
 
+class FallbackAIProcessor:
+    """Primary-first with automatic failover: run the primary provider until
+    ALL its keys are dead (quota / ban / revoked), then hand the rest of the
+    run to the fallback provider. Built for "free Gemini first, paid DeepSeek
+    as safety net" — AI coverage never degrades when the free quota runs out
+    mid-run.
+
+    Duck-type compatible with AIProcessor: process() / usage /
+    _quota_exhausted, so process_items() and the cli's usage report work
+    unchanged.
+    """
+
+    def __init__(self, primary: AIProcessor, fallback: AIProcessor):
+        self._primary = primary
+        self._fallback = fallback
+        self._active = primary
+
+    @property
+    def usage(self) -> dict[str, int]:
+        return {
+            "in": self._primary.usage["in"] + self._fallback.usage["in"],
+            "out": self._primary.usage["out"] + self._fallback.usage["out"],
+        }
+
+    @property
+    def _quota_exhausted(self) -> bool:
+        return self._primary._quota_exhausted and self._fallback._quota_exhausted
+
+    def _failover(self, why: str) -> None:
+        log.warning(
+            "AI failover: %s primary dead (%s) — switching to %s for the rest of this run",
+            self._primary._provider, why, self._fallback._provider,
+        )
+        self._active = self._fallback
+
+    def process(self, item: Item) -> Item:
+        if self._active is self._primary:
+            if self._primary._quota_exhausted:
+                self._failover("all keys dead before this item")
+                return self._fallback.process(item)
+            out = self._primary.process(item)
+            if self._primary._quota_exhausted:
+                self._failover("all keys died mid-run")
+                # The item that tripped the exhaustion came back raw —
+                # give it to the fallback instead of shipping it unenriched.
+                if not out.ai_summary:
+                    out = self._fallback.process(item)
+            return out
+        return self._fallback.process(item)
+
+
 def process_items(items: list[Item], ai: Optional["AIProcessor"]) -> list[Item]:
     """Process a list of items. If ai is None, returns items unchanged."""
     if ai is None:

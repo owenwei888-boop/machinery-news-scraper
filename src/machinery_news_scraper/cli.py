@@ -41,6 +41,14 @@ def _build_parser() -> argparse.ArgumentParser:
                           "(GEMINI_API_KEYS/GEMINI_API_KEY or DEEPSEEK_API_KEYS/DEEPSEEK_API_KEY).")
     run.add_argument("--ai-model", default="gemini-3.5-flash-lite",
                      help="AI model (default: gemini-3.5-flash-lite; 2.5-flash-lite is sunset for new keys)")
+    run.add_argument("--ai-fallback-provider", default=None,
+                     choices=["gemini", "deepseek"],
+                     help="Failover provider: when ALL primary keys die mid-run, the rest of "
+                          "the run switches to this provider (reads its own env keys). E.g. "
+                          "free Gemini primary + paid DeepSeek safety net.")
+    run.add_argument("--ai-fallback-model", default=None,
+                     help="Model for the fallback provider (default: deepseek-flash for "
+                          "deepseek, gemini-3.5-flash-lite for gemini)")
     run.add_argument("--auto-publish-threshold", type=int, default=0,
                      help="Auto-publish items with ai_importance >= this (0=never, default). "
                           "Recommended: 3 (frontpage-worthy) or 4 (only major).")
@@ -89,27 +97,51 @@ def _cmd_run(args) -> int:
             return 1
 
     # Build AI processor if configured
-    ai_processor = None
-    if args.ai_provider in ("gemini", "deepseek"):
-        env_multi = f"{args.ai_provider.upper()}_API_KEYS"
-        env_single = f"{args.ai_provider.upper()}_API_KEY"
-        # <PROV>_API_KEYS (comma-separated, rotation) wins; fall back to the
-        # legacy single <PROV>_API_KEY. Duplicates dropped, order preserved.
-        keys = [k.strip() for k in os.environ.get(env_multi, "").split(",") if k.strip()]
-        single = os.environ.get(env_single, "").strip()
+    def _resolve_keys(provider: str) -> list[str]:
+        """<PROV>_API_KEYS (comma-separated, rotation) wins; fall back to the
+        legacy single <PROV>_API_KEY. Duplicates dropped, order preserved."""
+        keys = [k.strip() for k in os.environ.get(f"{provider.upper()}_API_KEYS", "").split(",") if k.strip()]
+        single = os.environ.get(f"{provider.upper()}_API_KEY", "").strip()
         if single and single not in keys:
             keys.append(single)
+        return keys
+
+    ai_processor = None
+    if args.ai_provider in ("gemini", "deepseek"):
+        from .ai_processor import AIProcessor, FallbackAIProcessor  # lazy import — vendor SDKs are optional
+        keys = _resolve_keys(args.ai_provider)
         if not keys:
-            print(f"ERROR: --ai-provider={args.ai_provider} but {env_multi}/{env_single} not set in env", file=sys.stderr)
+            print(f"ERROR: --ai-provider={args.ai_provider} but "
+                  f"{args.ai_provider.upper()}_API_KEYS/{args.ai_provider.upper()}_API_KEY not set in env",
+                  file=sys.stderr)
             return 1
-        from .ai_processor import AIProcessor  # lazy import — vendor SDKs are optional
-        ai_processor = AIProcessor(
+        primary = AIProcessor(
             api_key=",".join(keys),
             model=args.ai_model,
             rpm_limit=args.ai_rpm,
             provider=args.ai_provider,
         )
-        print(f"AI: enabled ({args.ai_provider}/{args.ai_model}, {len(keys)} key(s), auto-publish >= {args.auto_publish_threshold})")
+        ai_processor = primary
+        desc = f"{args.ai_provider}/{args.ai_model}, {len(keys)} key(s)"
+        if args.ai_fallback_provider:
+            fb_keys = _resolve_keys(args.ai_fallback_provider)
+            if not fb_keys:
+                print(f"WARN: --ai-fallback-provider={args.ai_fallback_provider} but no key in env "
+                      f"— running primary-only", file=sys.stderr)
+            else:
+                fb_model = args.ai_fallback_model or (
+                    "deepseek-flash" if args.ai_fallback_provider == "deepseek"
+                    else "gemini-3.5-flash-lite"
+                )
+                fallback = AIProcessor(
+                    api_key=",".join(fb_keys),
+                    model=fb_model,
+                    rpm_limit=args.ai_rpm,
+                    provider=args.ai_fallback_provider,
+                )
+                ai_processor = FallbackAIProcessor(primary, fallback)
+                desc += f" → fallback {args.ai_fallback_provider}/{fb_model}, {len(fb_keys)} key(s)"
+        print(f"AI: enabled ({desc}, auto-publish >= {args.auto_publish_threshold})")
     else:
         print("AI: disabled (use --ai-provider gemini|deepseek to enable)")
 
